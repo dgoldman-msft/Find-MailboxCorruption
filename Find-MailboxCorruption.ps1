@@ -64,9 +64,6 @@ function Find-MailboxCorruption {
         [string]
         $MailboxList = "mailboxlist.csv",
 
-        [Int]
-        $MaxThreads = 5,
-
         [switch]
         $Repair,
 
@@ -75,8 +72,8 @@ function Find-MailboxCorruption {
     )
 
     begin {
-        Write-Output "Starting process"
         $parameters = $PSBoundParameters
+        Write-Output "Starting process"
     }
 
     process {
@@ -90,8 +87,13 @@ function Find-MailboxCorruption {
         #$ImapId = "ImapId"
         #$LockedMoveTarget = "LockedMoveTarget"
 
-        # Kick off the queued event
-        Write-Verbose "Getting mailboxes"
+        if((-NOT ($parameters.ContainsKey('CorruptionReport'))) -or (-NOT ($parameters.ContainsKey('Repair'))) -or (-NOT ($parameters.ContainsKey('DetectOnly'))))
+        {
+            Write-Console "No parameters selected"
+            return
+        }
+        
+        Write-Output "Getting mailboxes"
         try {
             Write-Verbose "Trying to impact $mailboxList"
             $script:mailboxes = Import-Csv -Path $mailboxList -ErrorAction SilentlyContinue
