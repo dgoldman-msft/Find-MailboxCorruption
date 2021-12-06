@@ -77,34 +77,35 @@ function Find-MailboxCorruption {
     }
 
     process {
-        $BulkCheckCorruptionItems = "MessageId", "MessagePtagCn", "MissingSpecialFolders", "ProvisionedFolder", "ReplState", "RestrictionFolder", "RuleMessageClass", "ScheduledCheck", "SearchFolder", "UniqueMidIndex"
-        Write-Verbose "Setting Bulk Corruption types to: $($BulkCheckCorruptionItems)"
-        #$AggregateCounts = "AggregateCounts"
-        #$CorruptJunkRule = "CorruptJunkRule"
-        #$DropAllLazyIndexes = "DropAllLazyIndexes"
-        #$FolderACL = "FolderACL"
-        #$FolderView = "FolderView"
-        #$ImapId = "ImapId"
-        #$LockedMoveTarget = "LockedMoveTarget"
-
-        if((-NOT ($parameters.ContainsKey('CorruptionReport'))) -or (-NOT ($parameters.ContainsKey('Repair'))) -or (-NOT ($parameters.ContainsKey('DetectOnly'))))
+        if(($parameters.ContainsKey('Repair') -or ($parameters.ContainsKey('DetectOnly') -or ($parameters.ContainsKey('CorruptionReport')))))
         {
-            Write-Console "No parameters selected"
+            Write-Output "Getting mailboxes"
+            try {
+                Write-Verbose "Trying to impact $mailboxList"
+                $script:mailboxes = Import-Csv -Path $mailboxList -ErrorAction SilentlyContinue
+            }
+            catch {
+                Write-Verbose "$mailboxList not found. Calling Get-Mailbox to retreive mailboxes"
+                $mailboxes = Get-Mailbox -ResultSize Unlimited | Select-Object Alias, DisplayName -ErrorAction Stop
+            }
+        }
+        else {
+            Write-Output "No parameters detected"
             return
-        }
-        
-        Write-Output "Getting mailboxes"
-        try {
-            Write-Verbose "Trying to impact $mailboxList"
-            $script:mailboxes = Import-Csv -Path $mailboxList -ErrorAction SilentlyContinue
-        }
-        catch {
-            Write-Verbose "$mailboxList not found. Calling Get-Mailbox to retreive mailboxes"
-            $mailboxes = Get-Mailbox -ResultSize Unlimited | Select-Object Alias, DisplayName -ErrorAction Stop
         }
 
         if ($parameters.ContainsKey('Repair')) {
             Write-Verbose "Kicking off New-MailboxRepairRequests for mailboxes in repair mode"
+            $BulkCheckCorruptionItems = "MessageId", "MessagePtagCn", "MissingSpecialFolders", "ProvisionedFolder", "ReplState", "RestrictionFolder", "RuleMessageClass", "ScheduledCheck", "SearchFolder", "UniqueMidIndex"
+            Write-Verbose "Setting Bulk Corruption types to: $($BulkCheckCorruptionItems)"
+            #$AggregateCounts = "AggregateCounts"
+            #$CorruptJunkRule = "CorruptJunkRule"
+            #$DropAllLazyIndexes = "DropAllLazyIndexes"
+            #$FolderACL = "FolderACL"
+            #$FolderView = "FolderView"
+            #$ImapId = "ImapId"
+            #$LockedMoveTarget = "LockedMoveTarget"
+
             foreach ($mailbox in $mailboxes) {
                 try {
                     New-MailboxRepairRequest -Mailbox $mailbox.Alias -CorruptionType $BulkCheckCorruptionItems -ErrorAction Stop
