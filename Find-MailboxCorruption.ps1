@@ -6,6 +6,9 @@ function Find-MailboxCorruption {
     .DESCRIPTION
         Display information about current mailbox repair requests. Also kick off repair requests if needed
 
+    .PARAMETER Batch
+        Pass in one or a few mailboxes for evaluation
+
     .PARAMETER CorruptionReport
         Output all mailboxes that have corruption in them
 
@@ -49,6 +52,9 @@ function Find-MailboxCorruption {
     [OutputType('System.String')]
     [CmdletBinding()]
     param (
+        [object[]]
+        $Batch,
+
         [switch]
         $CorruptionReport,
 
@@ -74,6 +80,7 @@ function Find-MailboxCorruption {
     begin {
         $parameters = $PSBoundParameters
         Write-Output "Starting process"
+        $BulkCheckCorruptionItems = "MessageId", "MessagePtagCn", "MissingSpecialFolders", "ProvisionedFolder", "ReplState", "RestrictionFolder", "RuleMessageClass", "ScheduledCheck", "SearchFolder", "UniqueMidIndex"
     }
 
     process {
@@ -81,6 +88,7 @@ function Find-MailboxCorruption {
         {
             Write-Output "Getting mailboxes"
             try {
+                if($batch) { $mailboxes = $batch }
                 Write-Verbose "Trying to impact $mailboxList"
                 $script:mailboxes = Import-Csv -Path $mailboxList -ErrorAction SilentlyContinue
             }
@@ -96,7 +104,6 @@ function Find-MailboxCorruption {
 
         if ($parameters.ContainsKey('Repair')) {
             Write-Verbose "Kicking off New-MailboxRepairRequests for mailboxes in repair mode"
-            $BulkCheckCorruptionItems = "MessageId", "MessagePtagCn", "MissingSpecialFolders", "ProvisionedFolder", "ReplState", "RestrictionFolder", "RuleMessageClass", "ScheduledCheck", "SearchFolder", "UniqueMidIndex"
             Write-Verbose "Setting Bulk Corruption types to: $($BulkCheckCorruptionItems)"
             #$AggregateCounts = "AggregateCounts"
             #$CorruptJunkRule = "CorruptJunkRule"
@@ -122,6 +129,7 @@ function Find-MailboxCorruption {
 
         if ($parameters.ContainsKey('DetectOnly')) {
             Write-Verbose "Kicking off New-MailboxRepairRequests for mailboxes in detect mode - Default mode"
+            Write-Verbose "Setting Bulk Corruption types to: $($BulkCheckCorruptionItems)"
             foreach ($mailbox in $mailboxes) {
                 try {
                     New-MailboxRepairRequest -Mailbox $mailbox.Alias -CorruptionType $BulkCheckCorruptionItems -ErrorAction Stop -DetectOnly
