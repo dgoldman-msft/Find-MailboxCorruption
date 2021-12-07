@@ -58,6 +58,10 @@ function Find-MailboxCorruption {
         [switch]
         $CorruptionReport,
 
+        [ValidateSet('AggregateCounts', 'CorruptJunkRule', 'DropAllLazyIndexes', 'FolderACL', 'FolderView', 'ImapId', 'LockedMoveTarget')]
+        [string]
+        $FixCorruptionType,
+
         [switch]
         $DetectOnly,
 
@@ -80,13 +84,17 @@ function Find-MailboxCorruption {
     begin {
         $parameters = $PSBoundParameters
         Write-Output "Starting process"
-        $BulkCheckCorruptionItems = "MessageId", "MessagePtagCn", "MissingSpecialFolders", "ProvisionedFolder", "ReplState", "RestrictionFolder", "RuleMessageClass", "ScheduledCheck", "SearchFolder", "UniqueMidIndex"
+        Write-Verbose "Checking for corruption types to scan / fix"
+        if($parameters.ContainsKey('FixCorruptionType')) { $BulkCorruptionItemsToFix = $FixCorruptionType }
+        else {
+            $BulkCorruptionItemsToFix = "MessageId", "MessagePtagCn", "MissingSpecialFolders", "ProvisionedFolder", "ReplState", "RestrictionFolder", "RuleMessageClass", "ScheduledCheck", "SearchFolder", "UniqueMidIndex"
+        }
     }
 
     process {
         if(($parameters.ContainsKey('Repair') -or ($parameters.ContainsKey('DetectOnly') -or ($parameters.ContainsKey('CorruptionReport')))))
         {
-            Write-Output "Getting mailboxes"
+            Write-Verbose "Getting mailboxes"
             try {
                 if($batch) { $mailboxes = $batch }
                 Write-Verbose "Trying to impact $mailboxList"
@@ -98,24 +106,17 @@ function Find-MailboxCorruption {
             }
         }
         else {
-            Write-Output "No parameters detected"
+            Write-Verbose "No parameters detected"
             return
         }
 
         if ($parameters.ContainsKey('Repair')) {
             Write-Verbose "Kicking off New-MailboxRepairRequests for mailboxes in repair mode"
-            Write-Verbose "Setting Bulk Corruption types to: $($BulkCheckCorruptionItems)"
-            #$AggregateCounts = "AggregateCounts"
-            #$CorruptJunkRule = "CorruptJunkRule"
-            #$DropAllLazyIndexes = "DropAllLazyIndexes"
-            #$FolderACL = "FolderACL"
-            #$FolderView = "FolderView"
-            #$ImapId = "ImapId"
-            #$LockedMoveTarget = "LockedMoveTarget"
+            Write-Verbose "Setting Bulk Corruption types to: $($BulkCorruptionItemsToFix)"
 
             foreach ($mailbox in $mailboxes) {
                 try {
-                    New-MailboxRepairRequest -Mailbox $mailbox.Alias -CorruptionType $BulkCheckCorruptionItems -ErrorAction Stop
+                    New-MailboxRepairRequest -Mailbox $mailbox.Alias -CorruptionType $BulkCorruptionItemsToFix -ErrorAction Stop
                 }
                 catch {
                     $date = "[{0:MM/dd/yy} {0:HH:mm:ss}] -" -f (Get-Date)
@@ -129,10 +130,10 @@ function Find-MailboxCorruption {
 
         if ($parameters.ContainsKey('DetectOnly')) {
             Write-Verbose "Kicking off New-MailboxRepairRequests for mailboxes in detect mode - Default mode"
-            Write-Verbose "Setting Bulk Corruption types to: $($BulkCheckCorruptionItems)"
+            Write-Verbose "Setting Bulk Corruption types to: $($BulkCorruptionItemsToFix)"
             foreach ($mailbox in $mailboxes) {
                 try {
-                    New-MailboxRepairRequest -Mailbox $mailbox.Alias -CorruptionType $BulkCheckCorruptionItems -ErrorAction Stop -DetectOnly
+                    New-MailboxRepairRequest -Mailbox $mailbox.Alias -CorruptionType $BulkCorruptionItemsToFix -ErrorAction Stop -DetectOnly
                 }
                 catch {
                     $date = "[{0:MM/dd/yy} {0:HH:mm:ss}] -" -f (Get-Date)
